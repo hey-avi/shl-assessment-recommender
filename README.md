@@ -13,6 +13,8 @@ short_description: Conversational AI agent for SHL assessment recommendations
 
 A conversational AI agent that helps hiring managers find the right SHL assessments through dialogue. The agent clarifies vague requests, recommends assessments grounded in the catalog, supports refinement and comparison, and refuses off-topic queries.
 
+**Live API:** [https://hey-avi2005-shl-assessment-recommender.hf.space](https://hey-avi2005-shl-assessment-recommender.hf.space)
+
 ## Architecture
 
 ```
@@ -106,6 +108,13 @@ Returns `{"status": "ok"}` with HTTP 200.
 
 ## Deployment
 
+### Hugging Face Spaces (Current)
+Live at: [hey-avi2005/shl-assessment-recommender](https://huggingface.co/spaces/hey-avi2005/shl-assessment-recommender)
+
+1. Create a Docker Space on HF
+2. Add secret: `GROQ_API_KEY`
+3. Push code — auto-builds and deploys
+
 ### Render
 1. Create a Web Service, connect your repo
 2. **Build command:** `pip install -r requirements.txt`
@@ -115,7 +124,7 @@ Returns `{"status": "ok"}` with HTTP 200.
 ### Docker
 ```bash
 docker build -t shl-recommender .
-docker run -p 8000:8000 -e GROQ_API_KEY=your_key shl-recommender
+docker run -p 7860:7860 -e GROQ_API_KEY=your_key shl-recommender
 ```
 
 ## Environment Variables
