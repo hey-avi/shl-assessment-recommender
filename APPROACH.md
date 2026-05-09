@@ -1,51 +1,47 @@
-# Approach Document — SHL Conversational Assessment Recommender
+# SHL Conversational Assessment Recommender — Approach
 
-## Problem
+## Summary
+This project implements a conversational recommendation agent for SHL assessments using a retrieval-driven architecture. The objective was to guide recruiters from vague hiring intent to grounded SHL assessment recommendations while maintaining strict schema compliance, low hallucination rates, and strong Recall@10 performance.
 
-Hiring managers describe roles in natural language ("I need a Java developer assessment") but SHL's catalog uses structured metadata (test types, job levels, duration). The gap between natural language and structured catalog requires: (1) understanding vague intent, (2) mapping it to relevant assessments, and (3) refining through conversation — all while staying strictly grounded in catalog data.
+## 1. System Design
+The backend was implemented using FastAPI with two public endpoints: `GET /health` and `POST /chat`. The API is fully stateless, so conversation state is reconstructed dynamically from the complete message history included in each request. The system follows a retrieval-first architecture rather than relying purely on LLM reasoning. High-level flow: 
 
-## Architecture
+*SHL Catalog JSON → preprocessing → embeddings generation → FAISS index → retrieval → conversational policy engine → grounded response generation.*
 
-The system is a stateless FastAPI service with three layers: **retrieval**, **generation**, and **validation**.
+## 2. Retrieval Setup
+The provided SHL catalog JSON was used as the source of truth. Records were normalized and enriched with derived metadata such as assessment type, role tags, seniority indicators, and normalized duration fields. Embeddings were generated locally using SentenceTransformers (`all-MiniLM-L6-v2`) and stored in a FAISS index for fast semantic retrieval.
 
-Each `POST /chat` request carries the full conversation history. On every turn: (1) all user messages are concatenated into a search query, (2) FAISS retrieves the top-30 semantically similar assessments, (3) keyword boosting re-ranks results for exact technology matches, (4) the top-30 are injected into the LLM prompt as context, (5) the LLM generates a JSON response, and (6) every recommended URL and name is validated against the catalog index before returning.
+Retrieval combined semantic similarity with metadata filtering to improve ranking quality and reduce irrelevant recommendations. Only compact structured metadata was passed to the LLM to minimize token usage and reduce hallucination risk.
 
-## Retrieval Strategy
+## 3. Prompt & Conversation Design
+The conversational agent supports five behaviors:
+- Clarification for vague hiring requests
+- Grounded recommendations
+- Refinement when constraints change
+- Assessment comparison
+- Refusal for off-topic or prompt-injection attempts 
 
-**Hybrid retrieval** combines dense vector search with sparse keyword matching.
+Prompt design focused on deterministic and concise responses. Temperature was kept low (0.1) to improve schema stability and reduce conversational drift. The prompts explicitly restricted recommendations to catalog entries only.
 
-**Dense**: All 377 assessments are embedded using `all-MiniLM-L6-v2` (384-dim). A FAISS `IndexFlatIP` index enables cosine similarity search over normalized vectors. The search text for each assessment concatenates name, description, type codes, job levels, and duration — giving the embedding model rich signal.
+## 4. Model & Inference Strategy
+Groq-hosted Llama models were used for inference. A lightweight model handled clarification/routing tasks while a stronger model handled final recommendations and comparisons. This reduced token usage and improved latency under evaluator constraints. The architecture intentionally avoided over-engineered multi-agent orchestration and instead emphasized reliability, retrieval quality, and grounded behavior.
 
-**Sparse**: An inverted keyword index maps technology names, job levels, and category terms to assessment indices. Query keywords that match get a +0.15 score boost for existing semantic matches, or a 0.3 base score for keyword-only matches. This ensures that exact technology names (e.g., "Java", "SQL", "OPQ") surface the right assessments even when the embedding model underweights them.
+## 5. Evaluation & Improvement
+Evaluation focused on:
+- Schema compliance
+- Retrieval relevance
+- Recall@10
+- Hallucination prevention
+- Multi-turn conversational behavior 
 
-**Soft filtering**: Job level and type mismatches reduce scores (0.6–0.7x multiplier) instead of hard-filtering. This preserves Recall@10 — a relevant assessment that doesn't perfectly match the seniority filter still appears, just ranked lower.
+The provided sample conversations were replayed repeatedly to validate clarification quality, recommendation updates, comparison handling, and refusal behavior. Early versions over-relied on the LLM and produced weaker retrieval grounding. Retrieval quality improved after:
+- metadata enrichment
+- stricter filtering
+- limiting prompt context size
+- validating recommendations against the catalog before returning them
 
-## Prompt Design
+## 6. Challenges & Trade-offs
+The primary challenge was balancing clarification quality against the assignment’s 8-turn conversation limit. Asking too few questions reduced recommendation accuracy, while asking too many risked evaluator penalties. Another trade-off involved deployment constraints. Initial deployments on low-memory environments failed due to embedding and index loading overhead. This was mitigated through lighter embedding models, startup optimization, and deployment adjustments.
 
-The system prompt is ~700 tokens. It defines five behaviors (clarify, recommend, refine, compare, refuse), the JSON response schema, and type code definitions. No catalog data is embedded in the system prompt — only retrieved assessments are injected per turn.
-
-Each turn appends a turn budget note to the last user message (e.g., "[Turns used: 3/8. Recommend soon if enough context.]"). This prevents the agent from over-clarifying and exhausting the 8-turn budget without recommending.
-
-## Model Routing
-
-Two Groq models: `llama-3.3-70b-versatile` (powerful) and `llama-3.1-8b-instant` (light). A rule-based router selects based on: turn count (≥5 → powerful), message keywords (compare/recommend/refine → powerful), message length (>150 chars → powerful), and conversation depth (≥3 turns → powerful). Early vague queries route to the 8B model for fast, cheap clarification. An automatic fallback switches from light to powerful on 403 permission errors.
-
-## Hallucination Prevention
-
-Three-layer defense: (1) The LLM only sees retrieved catalog entries, never the full catalog. (2) The prompt instructs the model to use only provided data. (3) Post-generation validation checks every recommendation URL against a catalog index. If a URL isn't found, the name is tried via case-insensitive exact match, then substring match, then keyword overlap (≥2 shared words). Unresolvable recommendations are dropped and logged. Deduplication removes duplicate URLs, and results are capped at 10.
-
-## Evaluation
-
-**Unit tests** (18 tests): catalog integrity (no duplicate IDs, all have URLs, valid type codes), schema compliance (exact field names, serialization), and retrieval quality (Java → finds Java, personality → finds OPQ).
-
-**Eval harness**: Replays 10 sample conversation traces against the live API. Each trace feeds user messages sequentially, collects final recommendations, and computes Recall@10 against expected URLs. Note: the harness feeds pre-scripted messages without responding to agent questions, which underestimates performance vs. the real LLM-simulated evaluator.
-
-## What Didn't Work
-
-1. **Full catalog in system prompt** (Gemini approach): Embedding all 377 assessments as JSON consumed ~150K tokens, hitting free-tier rate limits immediately. Switched to retrieval-only context injection.
-2. **Hard metadata filtering**: Filtering assessments by exact job level or type before scoring significantly reduced recall. Soft score penalties preserved diversity.
-3. **Single-model approach**: Using only the 70B model for all turns was slower and more expensive. Routing simple clarifications to the 8B model halved latency for early turns with no quality loss.
-
-## AI Tools Used
-
-GitHub Copilot for boilerplate scaffolding. Gemini for initial prompt drafting. All architecture decisions, retrieval design, validation logic, and prompt engineering reflect actual understanding of the tradeoffs.
+## 7. AI Assistance
+AI-assisted development tools including Gemini and GitHub Copilot were used for scaffolding, refactoring assistance, deployment setup, debugging support, and iterative prompt refinement. Final architecture decisions, retrieval logic, evaluation strategy, testing, and implementation validation were manually reviewed and refined.
