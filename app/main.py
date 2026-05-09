@@ -68,6 +68,19 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+async def root():
+    """Root endpoint with API info."""
+    return {
+        "service": "SHL Assessment Recommender",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "/health",
+            "chat": "/chat (POST)",
+        },
+    }
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health():
     """Readiness check endpoint."""
