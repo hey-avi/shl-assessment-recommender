@@ -1,5 +1,9 @@
 FROM python:3.11-slim
 
+# HF Spaces requires port 7860 and non-root user
+ENV PORT=7860
+EXPOSE 7860
+
 WORKDIR /app
 
 # Install system dependencies
@@ -11,17 +15,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download the embedding model so startup is fast
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
 # Copy application code
 COPY app/ app/
 COPY data/ data/
 
-# Expose port
-ENV PORT=8000
-EXPOSE 8000
+# HF Spaces runs as uid 1000
+RUN useradd -m -u 1000 user
+USER user
 
-# Health check for cold start (2 min timeout per spec)
-HEALTHCHECK --interval=30s --timeout=120s --start-period=120s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
-
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
