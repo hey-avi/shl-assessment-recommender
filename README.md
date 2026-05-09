@@ -1,3 +1,14 @@
+---
+title: SHL Assessment Recommender
+emoji: 🎯
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+license: mit
+short_description: Conversational AI agent for SHL assessment recommendations
+---
+
 # SHL Conversational Assessment Recommender
 
 A conversational AI agent that helps hiring managers find the right SHL assessments through dialogue. The agent clarifies vague requests, recommends assessments grounded in the catalog, supports refinement and comparison, and refuses off-topic queries.
