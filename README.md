@@ -16,7 +16,7 @@ A conversational AI agent that helps hiring managers find the right SHL assessme
 **Live API:** 
 - **Base:** [https://hey-avi2005-shl-assessment-recommender.hf.space](https://hey-avi2005-shl-assessment-recommender.hf.space)
 - **Health:** [https://hey-avi2005-shl-assessment-recommender.hf.space/health](https://hey-avi2005-shl-assessment-recommender.hf.space/health)
-- **Chat:** `POST https://hey-avi2005-shl-assessment-recommender.hf.space/chat`
+- **Chat:** POST [https://hey-avi2005-shl-assessment-recommender.hf.space/chat](https://hey-avi2005-shl-assessment-recommender.hf.space/chat)
 
 ## Architecture
 
