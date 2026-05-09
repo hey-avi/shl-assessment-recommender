@@ -13,7 +13,10 @@ short_description: Conversational AI agent for SHL assessment recommendations
 
 A conversational AI agent that helps hiring managers find the right SHL assessments through dialogue. The agent clarifies vague requests, recommends assessments grounded in the catalog, supports refinement and comparison, and refuses off-topic queries.
 
-**Live API:** [https://hey-avi2005-shl-assessment-recommender.hf.space](https://hey-avi2005-shl-assessment-recommender.hf.space)
+**Live API:** 
+- **Base:** [https://hey-avi2005-shl-assessment-recommender.hf.space](https://hey-avi2005-shl-assessment-recommender.hf.space)
+- **Health:** [https://hey-avi2005-shl-assessment-recommender.hf.space/health](https://hey-avi2005-shl-assessment-recommender.hf.space/health)
+- **Chat:** `POST https://hey-avi2005-shl-assessment-recommender.hf.space/chat`
 
 ## Architecture
 
